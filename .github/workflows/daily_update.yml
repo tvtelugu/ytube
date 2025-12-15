@@ -24,10 +24,12 @@ jobs:
       - name: Install Dependencies
         run: |
           pip install -r requirements.txt
+          # Force update to ensure latest extractors
+          pip install --upgrade yt-dlp streamlink
 
       - name: Run Extraction Script
         run: python ytube.py
-
+        
       - name: Commit and Push Changes
         run: |
           git config --global user.name "GitHub Actions Bot"
