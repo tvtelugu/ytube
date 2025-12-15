@@ -1,0 +1,40 @@
+[
+
+
+   {
+    "name": "TV9 Telugu",
+    "url": "https://www.youtube.com/watch?v=II_m28Bm-iM",
+    "group": "News",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/TV9TeluguLogo.jpg/1010px-TV9TeluguLogo.jpg"
+  },
+  {
+    "name": "TV9 Telugu Live",
+    "url": "https://www.youtube.com/@TV9TeluguLive/live",
+    "group": "News",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/TV9TeluguLogo.jpg/1010px-TV9TeluguLogo.jpg"
+  },
+  {
+    "name": "V6 News Live",
+    "url": "https://www.youtube.com/@V6NewsTelugu/live",
+    "group": "News",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/V6_News.jpg/500px-V6_News.jpg"
+  },
+  {
+    "name": "Bhakthi TV Live",
+    "url": "https://www.youtube.com/@BhakthiTV/live",
+    "group": "Devotional",
+    "logo": "https://yt3.googleusercontent.com/ytc/AIdro_kxsY7lAdRk1ZHKtVK7BtAZuCV_V8tVSVu7mynBS4Ix-BU=s500-c-k-c0x00ffffff-no-rj"
+  },
+  {
+    "name": "NTV Telugu Live",
+    "url": "https://www.youtube.com/@NtvTelugu/live",
+    "group": "News",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/b/ba/Ntv_India_official_logo.png/447px-Ntv_India_official_logo.png"
+  },
+  {
+    "name": "TV9 Telugu",
+    "url": "https://www.youtube.com/watch?v=II_m28Bm-iM",
+    "group": "Music",
+    "logo": "https://i.imgur.com/example-logo.png"
+  }
+]
