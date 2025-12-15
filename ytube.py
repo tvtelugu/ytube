@@ -1,5 +1,6 @@
 import json
 import os
+import yt_dlp
 import streamlink
 from datetime import datetime, timedelta, timezone
 
@@ -8,59 +9,84 @@ INPUT_FILE = 'ytube.json'
 OUTPUT_FILE = 'playlist.m3u'
 
 def get_ist_time():
-    """Returns current time in Indian Standard Time (UTC+05:30)"""
     utc_now = datetime.now(timezone.utc)
     ist_offset = timedelta(hours=5, minutes=30)
-    ist_now = utc_now + ist_offset
-    return ist_now.strftime('%Y-%m-%d %H:%M:%S IST')
+    return (utc_now + ist_offset).strftime('%Y-%m-%d %H:%M:%S IST')
 
-def get_live_url(youtube_url):
-    """
-    Uses Streamlink to fetch the HLS URL.
-    """
-    session = streamlink.Streamlink()
-    
-    # Mimic a browser to avoid simple bot detection
-    session.set_option("http-headers", {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": "https://www.youtube.com/"
-    })
-
+# --- STRATEGY 1: Streamlink ---
+def fetch_streamlink(url):
     try:
-        streams = session.streams(youtube_url)
-        if not streams:
-            return None
-
-        # 'best' selects the highest resolution HLS stream available
-        if 'best' in streams:
+        session = streamlink.Streamlink()
+        session.set_option("http-headers", {
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Referer": "https://www.youtube.com/"
+        })
+        streams = session.streams(url)
+        if streams and 'best' in streams:
             return streams['best'].url
-        elif 'worst' in streams:
-            return streams['worst'].url
-        return None
-
     except Exception:
-        return None
+        pass
+    return None
+
+# --- STRATEGY 2: yt-dlp (iOS Client) ---
+def fetch_ytdlp_ios(url):
+    opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'format': 'best',
+        'extractor_args': {'youtube': {'player_client': ['ios']}}, # Pretend to be an iPhone
+        'geo_bypass': True,
+    }
+    return run_ytdlp(url, opts)
+
+# --- STRATEGY 3: yt-dlp (Android Client) ---
+def fetch_ytdlp_android(url):
+    opts = {
+        'quiet': True,
+        'no_warnings': True,
+        'format': 'best',
+        'extractor_args': {'youtube': {'player_client': ['android']}}, # Pretend to be Android
+        'geo_bypass': True,
+    }
+    return run_ytdlp(url, opts)
+
+def run_ytdlp(url, opts):
+    try:
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            # Check direct URL
+            if info.get('url') and '.m3u8' in info.get('url', ''):
+                return info['url']
+            # Check formats
+            formats = info.get('formats', [])
+            m3u8 = [f for f in formats if 'm3u8' in f.get('protocol', '')]
+            if m3u8:
+                return m3u8[0]['url']
+    except Exception:
+        pass
+    return None
 
 def generate_playlist():
     if not os.path.exists(INPUT_FILE):
-        print(f"Error: {INPUT_FILE} not found.")
+        print("Error: ytube.json not found.")
         return
 
     try:
-        with open(INPUT_FILE, 'r', encoding='utf-8') as f:
+        with open(INPUT_FILE, 'r') as f:
             channels = json.load(f)
-    except Exception:
-        print("Error: JSON file is invalid.")
+    except:
+        print("Error: Invalid JSON.")
         return
 
-    # Header with IST Timestamp
     current_time = get_ist_time()
-    m3u_content = ["#EXTM3U"]
-    m3u_content.append(f"# Playlist Updated: {current_time}")
+    m3u_content = [
+        "#EXTM3U",
+        f"# Playlist Updated: {current_time}",
+        "# User-Agent: Mozilla/5.0" 
+    ]
     
-    print(f"Starting Update: {current_time}")
-    print(f"Processing {len(channels)} channels...")
-
+    print(f"Update Started: {current_time}")
+    
     count = 0
     for channel in channels:
         name = channel.get('name', 'Unknown')
@@ -69,22 +95,30 @@ def generate_playlist():
         logo = channel.get('logo', '')
 
         print(f"Fetching: {name}...", end=" ", flush=True)
-        
-        stream_url = get_live_url(url)
 
-        if stream_url:
-            m3u_content.append(f'#EXTINF:-1 group-title="{group}" tvg-logo="{logo}",{name}')
-            m3u_content.append(stream_url)
+        # Try Strategy 1
+        link = fetch_streamlink(url)
+        
+        # Try Strategy 2 if 1 failed
+        if not link:
+            link = fetch_ytdlp_ios(url)
+            
+        # Try Strategy 3 if 1 & 2 failed
+        if not link:
+            link = fetch_ytdlp_android(url)
+
+        if link:
             print("OK")
+            m3u_content.append(f'#EXTINF:-1 group-title="{group}" tvg-logo="{logo}",{name}')
+            m3u_content.append(link)
             count += 1
         else:
-            print("FAILED")
+            print("FAILED (All methods)")
 
-    # Write to file
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    with open(OUTPUT_FILE, 'w') as f:
         f.write("\n".join(m3u_content))
     
-    print(f"\nDone. Updated {OUTPUT_FILE} with {count} channels.")
+    print(f"\nDone. Saved {count} channels to {OUTPUT_FILE}")
 
 if __name__ == "__main__":
     generate_playlist()
