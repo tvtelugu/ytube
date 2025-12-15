@@ -6,8 +6,9 @@ from datetime import datetime, timedelta, timezone
 
 # Configuration
 INPUT_FILE = 'ytube.json'
-OUTPUT_FILE = 'playlist.m3u'
-COOKIE_FILE = 'cookies.txt'  # <--- NEW CONFIG
+M3U_FILE = 'playlist.m3u'
+TXT_FILE = 'playlist.txt'   # <--- NEW OUTPUT FILE
+COOKIE_FILE = 'cookies.txt'
 
 def get_ist_time():
     utc_now = datetime.now(timezone.utc)
@@ -15,9 +16,6 @@ def get_ist_time():
     return (utc_now + ist_offset).strftime('%Y-%m-%d %H:%M:%S IST')
 
 def fetch_with_ytdlp(url):
-    """
-    Uses yt-dlp with Cookies to bypass the 'Bot' check.
-    """
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
@@ -25,34 +23,23 @@ def fetch_with_ytdlp(url):
         'live_from_start': True,
         'geo_bypass': True,
     }
-
-    # IMPORTANT: Use cookies if the file exists
     if os.path.exists(COOKIE_FILE):
         ydl_opts['cookiefile'] = COOKIE_FILE
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
-            
-            # 1. Check direct URL
             if info.get('url') and '.m3u8' in info.get('url', ''):
                 return info['url']
-            
-            # 2. Check formats
             formats = info.get('formats', [])
             m3u8_formats = [f for f in formats if 'm3u8' in f.get('protocol', '')]
-            
             if m3u8_formats:
-                # Return the best quality m3u8
                 return m3u8_formats[0]['url']
     except Exception:
         pass
     return None
 
 def fetch_with_streamlink(url):
-    """
-    Fallback method using Streamlink
-    """
     try:
         session = streamlink.Streamlink()
         session.set_option("http-headers", {
@@ -79,17 +66,22 @@ def generate_playlist():
         return
 
     current_time = get_ist_time()
+    
+    # Initialize M3U Content
     m3u_content = [
         "#EXTM3U",
         f"# Playlist Updated: {current_time}",
     ]
+
+    # Initialize TXT Content
+    txt_content = [
+        f"Playlist Updated: {current_time}",
+        "===================================="
+    ]
     
     print(f"Update Started: {current_time}")
-    
     if os.path.exists(COOKIE_FILE):
         print(f"Authentication: Using {COOKIE_FILE}")
-    else:
-        print("Authentication: No cookies found (High risk of failure in Actions)")
 
     count = 0
     for channel in channels:
@@ -100,25 +92,33 @@ def generate_playlist():
 
         print(f"Fetching: {name}...", end=" ", flush=True)
 
-        # 1. Try yt-dlp WITH COOKIES (Best for bypassing blocks)
         link = fetch_with_ytdlp(url)
-        
-        # 2. Fallback to Streamlink if failed
         if not link:
             link = fetch_with_streamlink(url)
 
         if link:
             print("OK")
+            # Add to M3U
             m3u_content.append(f'#EXTINF:-1 group-title="{group}" tvg-logo="{logo}",{name}')
             m3u_content.append(link)
+            
+            # Add to TXT
+            txt_content.append(f"\nChannel: {name}")
+            txt_content.append(f"Link: {link}")
+            
             count += 1
         else:
             print("FAILED")
 
-    with open(OUTPUT_FILE, 'w', encoding='utf-8') as f:
+    # Save M3U
+    with open(M3U_FILE, 'w', encoding='utf-8') as f:
         f.write("\n".join(m3u_content))
+
+    # Save TXT
+    with open(TXT_FILE, 'w', encoding='utf-8') as f:
+        f.write("\n".join(txt_content))
     
-    print(f"\nDone. Saved {count} channels.")
+    print(f"\nDone. Saved {count} channels to {M3U_FILE} and {TXT_FILE}")
 
 if __name__ == "__main__":
     generate_playlist()
